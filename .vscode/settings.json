@@ -1,4 +1,21 @@
 {
-    "python.linting.flake8Enabled": true,
-    "python.linting.enabled": true
+    "gitlens.hovers.currentLine.over": "line",
+    "editor.formatOnSave": true,
+    "python.pythonPath": "./workspace_venv/bin/python3",
+    "python.formatting.provider": "black",
+    "python.formatting.blackArgs": [
+        "--line-length=99"
+    ],
+    "python.sortImports.args": [
+        "--profile",
+        "black"
+    ],
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.fixAll": true,
+            "source.organizeImports": true,
+            "source.sortMembers": true
+        }
+    },
+    "files.trimTrailingWhitespace": true
 }
