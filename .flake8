@@ -1,0 +1,2 @@
+ignore = F401,F811,E402
+max-doc-length = 105
