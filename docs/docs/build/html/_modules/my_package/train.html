@@ -1,0 +1,562 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>my_package.train &mdash; Housing Price Prediction 0.3 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../../" src="../../_static/documentation_options.js"></script>
+        <script data-url_root="../../" id="documentation_options" src="../../_static/documentation_options.js"></script>
+        <script src="../../_static/jquery.js"></script>
+        <script src="../../_static/underscore.js"></script>
+        <script src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+        <script src="../../_static/doctools.js"></script>
+    
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../../index.html" class="icon icon-home"> Housing Price Prediction
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <!-- Local TOC -->
+              <div class="local-toc"></div>
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../../index.html">Housing Price Prediction</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="../index.html">Module code</a> &raquo;</li>
+        
+      <li>my_package.train</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for my_package.train</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">train.py</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">import</span> <span class="nn">argparse</span>
+<span class="kn">import</span> <span class="nn">logging</span>
+<span class="kn">import</span> <span class="nn">logging.config</span>
+<span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">pickle</span>
+<span class="kn">import</span> <span class="nn">time</span>
+
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">scipy.stats</span> <span class="kn">import</span> <span class="n">randint</span>
+<span class="kn">from</span> <span class="nn">sklearn.ensemble</span> <span class="kn">import</span> <span class="n">RandomForestRegressor</span>
+<span class="kn">from</span> <span class="nn">sklearn.impute</span> <span class="kn">import</span> <span class="n">SimpleImputer</span>
+<span class="kn">from</span> <span class="nn">sklearn.linear_model</span> <span class="kn">import</span> <span class="n">LinearRegression</span>
+<span class="kn">from</span> <span class="nn">sklearn.model_selection</span> <span class="kn">import</span> <span class="n">GridSearchCV</span><span class="p">,</span> <span class="n">RandomizedSearchCV</span>
+<span class="kn">from</span> <span class="nn">sklearn.tree</span> <span class="kn">import</span> <span class="n">DecisionTreeRegressor</span>
+
+<span class="kn">from</span> <span class="nn">my_package</span> <span class="kn">import</span> <span class="n">log</span>
+
+
+<div class="viewcode-block" id="Train"><a class="viewcode-back" href="../../index.html#my_package.train.Train">[docs]</a><span class="k">class</span> <span class="nc">Train</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Class to train the models</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">parse_opt</span><span class="p">(</span><span class="n">known</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+        <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">()</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--data_folder&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;../../data&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path for input data&quot;</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--output_folder&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;../../artifacts&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path for model output&quot;</span>
+        <span class="p">)</span>
+
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--log_level&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Log level&quot;</span><span class="p">)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--log_path&quot;</span><span class="p">,</span>
+            <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Path to store logs, if empty logs would not be written to a file&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="c1"># parser.add_argument(&#39;--no_console_log&#39;, default=&#39;true&#39;, help=&#39;true if logs to be written to console, else false&#39;)</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+            <span class="s2">&quot;--no_console_log&quot;</span><span class="p">,</span>
+            <span class="n">action</span><span class="o">=</span><span class="n">argparse</span><span class="o">.</span><span class="n">BooleanOptionalAction</span><span class="p">,</span>
+            <span class="n">help</span><span class="o">=</span><span class="s2">&quot;true if logs to be written to console, else false&quot;</span><span class="p">,</span>
+        <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_known_args</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">known</span> <span class="k">else</span> <span class="n">parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="k">def</span> <span class="nf">income_cat_proportions</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">data</span><span class="p">[</span><span class="s2">&quot;income_cat&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+
+<div class="viewcode-block" id="Train.save_model"><a class="viewcode-back" href="../../index.html#my_package.train.Train.save_model">[docs]</a>    <span class="k">def</span> <span class="nf">save_model</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">model</span><span class="p">,</span> <span class="n">model_folder</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save model to the desired folder</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        model : Model object</span>
+<span class="sd">            Dataframe containing all the data</span>
+<span class="sd">        opt : Namespace</span>
+<span class="sd">            Containing the arguements passed from ArgeParser</span>
+<span class="sd">        model_folder: str</span>
+<span class="sd">            Path where model will be saved</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        model_path = os.path.join(opt.output_folder, model_folder)</span>
+<span class="sd">        # print(&quot;Model Path&quot;, model_path)</span>
+<span class="sd">        os.makedirs(os.path.join(model_path), exist_ok=True)</span>
+<span class="sd">        with open(os.path.join(model_path, &quot;model.pkl&quot;), &quot;wb&quot;) as f:</span>
+<span class="sd">            pickle.dump(model, f)</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">model_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">output_folder</span><span class="p">,</span> <span class="n">model_folder</span><span class="p">)</span>
+        <span class="c1"># print(&quot;Model Path&quot;, model_path)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_path</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">model_path</span><span class="p">,</span> <span class="s2">&quot;model.pkl&quot;</span><span class="p">),</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Train.train_LR"><a class="viewcode-back" href="../../index.html#my_package.train.Train.train_LR">[docs]</a>    <span class="k">def</span> <span class="nf">train_LR</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Trains Linear Regression model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X_train: DataFrame</span>
+<span class="sd">            Independent variables of Training dataset</span>
+<span class="sd">        y_train: Series</span>
+<span class="sd">            Dependent variables of Training dataset</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        start_time = time.time()</span>
+<span class="sd">        lr_model = LinearRegression()</span>
+<span class="sd">        lr_model.fit(X_train, y_train)</span>
+<span class="sd">        logger.debug(&quot;Linear Regression model trained&quot;)</span>
+<span class="sd">        logger.debug(&quot; Trained in: &quot; + str(time.time() - start_time))</span>
+<span class="sd">        self.save_model(lr_model, &quot;LinearRegModel&quot;)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">lr_model</span> <span class="o">=</span> <span class="n">LinearRegression</span><span class="p">()</span>
+        <span class="n">lr_model</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Linear Regression model trained&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot; Trained in: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">lr_model</span><span class="p">,</span> <span class="s2">&quot;LinearRegModel&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Train.train_tree"><a class="viewcode-back" href="../../index.html#my_package.train.Train.train_tree">[docs]</a>    <span class="k">def</span> <span class="nf">train_tree</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Trains Decision Tree Regressor model</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X_train: DataFrame</span>
+<span class="sd">            Independent variables of Training dataset</span>
+<span class="sd">        y_train: Series</span>
+<span class="sd">            Dependent variables of Training dataset</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        start_time = time.time()</span>
+<span class="sd">        tree_reg = DecisionTreeRegressor(random_state=42)</span>
+<span class="sd">        tree_reg.fit(X_train, y_train)</span>
+<span class="sd">        logger.debug(&quot;Decision tree model trained&quot;)</span>
+<span class="sd">        logger.debug(&quot; Trained in: &quot; + str(time.time() - start_time))</span>
+<span class="sd">        self.save_model(tree_reg, &quot;DecisionTreeModel&quot;)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">tree_reg</span> <span class="o">=</span> <span class="n">DecisionTreeRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+        <span class="n">tree_reg</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Decision tree model trained&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot; Trained in: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">tree_reg</span><span class="p">,</span> <span class="s2">&quot;DecisionTreeModel&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Train.forest_reg_rand"><a class="viewcode-back" href="../../index.html#my_package.train.Train.forest_reg_rand">[docs]</a>    <span class="k">def</span> <span class="nf">forest_reg_rand</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Trains RandomForest Regressor model and</span>
+<span class="sd">        choosing best hyperparameters usng RandomizedSearchCV</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X_train: DataFrame</span>
+<span class="sd">            Independent variables of Training dataset</span>
+<span class="sd">        y_train: Series</span>
+<span class="sd">            Dependent variables of Training dataset</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        start_time = time.time()</span>
+<span class="sd">        param_distribs = {</span>
+<span class="sd">            &quot;n_estimators&quot;: randint(low=1, high=200),</span>
+<span class="sd">            &quot;max_features&quot;: randint(low=1, high=8),</span>
+<span class="sd">        }</span>
+
+<span class="sd">        forest_reg = RandomForestRegressor(random_state=42)</span>
+<span class="sd">        rnd_search = RandomizedSearchCV(</span>
+<span class="sd">            forest_reg,</span>
+<span class="sd">            param_distributions=param_distribs,</span>
+<span class="sd">            n_iter=10,</span>
+<span class="sd">            cv=5,</span>
+<span class="sd">            scoring=&quot;neg_mean_squared_error&quot;,</span>
+<span class="sd">            random_state=42,</span>
+<span class="sd">        )</span>
+<span class="sd">        rnd_search.fit(X_train, y_train)</span>
+<span class="sd">        final_model = rnd_search.best_estimator_</span>
+<span class="sd">        logger.debug(&quot;Random Forest using randomizedSearch model trained&quot;)</span>
+<span class="sd">        logger.debug(&quot; Trained in: &quot; + str(time.time() - start_time))</span>
+<span class="sd">        self.save_model(final_model, &quot;RandomForest_rand&quot;)</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">param_distribs</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;n_estimators&quot;</span><span class="p">:</span> <span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">200</span><span class="p">),</span>
+            <span class="s2">&quot;max_features&quot;</span><span class="p">:</span> <span class="n">randint</span><span class="p">(</span><span class="n">low</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">high</span><span class="o">=</span><span class="mi">8</span><span class="p">),</span>
+        <span class="p">}</span>
+
+        <span class="n">forest_reg</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+        <span class="n">rnd_search</span> <span class="o">=</span> <span class="n">RandomizedSearchCV</span><span class="p">(</span>
+            <span class="n">forest_reg</span><span class="p">,</span>
+            <span class="n">param_distributions</span><span class="o">=</span><span class="n">param_distribs</span><span class="p">,</span>
+            <span class="n">n_iter</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+            <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>
+            <span class="n">scoring</span><span class="o">=</span><span class="s2">&quot;neg_mean_squared_error&quot;</span><span class="p">,</span>
+            <span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="n">rnd_search</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="n">final_model</span> <span class="o">=</span> <span class="n">rnd_search</span><span class="o">.</span><span class="n">best_estimator_</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Random Forest using randomizedSearch model trained&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot; Trained in: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">final_model</span><span class="p">,</span> <span class="s2">&quot;RandomForest_rand&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Train.forest_reg_grid"><a class="viewcode-back" href="../../index.html#my_package.train.Train.forest_reg_grid">[docs]</a>    <span class="k">def</span> <span class="nf">forest_reg_grid</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Trains RandomForest Regressor model and</span>
+<span class="sd">        choosing best hyperparameters usng GridSearchCV</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X_train: DataFrame</span>
+<span class="sd">            Independent variables of Training dataset</span>
+<span class="sd">        y_train: Series</span>
+<span class="sd">            Dependent variables of Training dataset</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        start_time = time.time()</span>
+<span class="sd">        param_grid = [</span>
+<span class="sd">            # try 12 (3×4) combinations of hyperparameters</span>
+<span class="sd">            {&quot;n_estimators&quot;: [3, 10, 30], &quot;max_features&quot;: [2, 4, 6, 8]},</span>
+<span class="sd">            # then try 6 (2×3) combinations with bootstrap set as False</span>
+<span class="sd">            {&quot;bootstrap&quot;: [False], &quot;n_estimators&quot;: [3, 10], &quot;max_features&quot;: [2, 3, 4]},</span>
+<span class="sd">        ]</span>
+<span class="sd">        forest_reg = RandomForestRegressor(random_state=42)</span>
+<span class="sd">        # train across 5 folds, that&#39;s a total of (12+6)*5=90 rounds of training</span>
+<span class="sd">        grid_search = GridSearchCV(</span>
+<span class="sd">            forest_reg, param_grid, cv=5, scoring=&quot;neg_mean_squared_error&quot;, return_train_score=True</span>
+<span class="sd">        )</span>
+<span class="sd">        grid_search.fit(X_train, y_train)</span>
+
+<span class="sd">        grid_search.best_params_</span>
+<span class="sd">        cvres = grid_search.cv_results_</span>
+<span class="sd">        for mean_score, params in zip(cvres[&quot;mean_test_score&quot;], cvres[&quot;params&quot;]):</span>
+<span class="sd">            print(np.sqrt(-mean_score), params)</span>
+
+<span class="sd">        feature_importances = grid_search.best_estimator_.feature_importances_</span>
+<span class="sd">        sorted(zip(feature_importances, X_train.columns), reverse=True)</span>
+<span class="sd">        final_model = grid_search.best_estimator_</span>
+<span class="sd">        logger.debug(&quot;Random Forest using GridSearch model trained&quot;)</span>
+<span class="sd">        logger.debug(&quot; Trained in: &quot; + str(time.time() - start_time))</span>
+<span class="sd">        self.save_model(final_model, &quot;RandomForest_grid&quot;)</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">start_time</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="n">param_grid</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="c1"># try 12 (3×4) combinations of hyperparameters</span>
+            <span class="p">{</span><span class="s2">&quot;n_estimators&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">,</span> <span class="mi">30</span><span class="p">],</span> <span class="s2">&quot;max_features&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">6</span><span class="p">,</span> <span class="mi">8</span><span class="p">]},</span>
+            <span class="c1"># then try 6 (2×3) combinations with bootstrap set as False</span>
+            <span class="p">{</span><span class="s2">&quot;bootstrap&quot;</span><span class="p">:</span> <span class="p">[</span><span class="kc">False</span><span class="p">],</span> <span class="s2">&quot;n_estimators&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">3</span><span class="p">,</span> <span class="mi">10</span><span class="p">],</span> <span class="s2">&quot;max_features&quot;</span><span class="p">:</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">4</span><span class="p">]},</span>
+        <span class="p">]</span>
+        <span class="n">forest_reg</span> <span class="o">=</span> <span class="n">RandomForestRegressor</span><span class="p">(</span><span class="n">random_state</span><span class="o">=</span><span class="mi">42</span><span class="p">)</span>
+        <span class="c1"># train across 5 folds, that&#39;s a total of (12+6)*5=90 rounds of training</span>
+        <span class="n">grid_search</span> <span class="o">=</span> <span class="n">GridSearchCV</span><span class="p">(</span>
+            <span class="n">forest_reg</span><span class="p">,</span> <span class="n">param_grid</span><span class="p">,</span> <span class="n">cv</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">scoring</span><span class="o">=</span><span class="s2">&quot;neg_mean_squared_error&quot;</span><span class="p">,</span> <span class="n">return_train_score</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+        <span class="n">grid_search</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+
+        <span class="n">grid_search</span><span class="o">.</span><span class="n">best_params_</span>
+        <span class="n">cvres</span> <span class="o">=</span> <span class="n">grid_search</span><span class="o">.</span><span class="n">cv_results_</span>
+        <span class="k">for</span> <span class="n">mean_score</span><span class="p">,</span> <span class="n">params</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">cvres</span><span class="p">[</span><span class="s2">&quot;mean_test_score&quot;</span><span class="p">],</span> <span class="n">cvres</span><span class="p">[</span><span class="s2">&quot;params&quot;</span><span class="p">]):</span>
+            <span class="nb">print</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="o">-</span><span class="n">mean_score</span><span class="p">),</span> <span class="n">params</span><span class="p">)</span>
+
+        <span class="n">feature_importances</span> <span class="o">=</span> <span class="n">grid_search</span><span class="o">.</span><span class="n">best_estimator_</span><span class="o">.</span><span class="n">feature_importances_</span>
+        <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">feature_importances</span><span class="p">,</span> <span class="n">X_train</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">final_model</span> <span class="o">=</span> <span class="n">grid_search</span><span class="o">.</span><span class="n">best_estimator_</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;Random Forest using GridSearch model trained&quot;</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot; Trained in: &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start_time</span><span class="p">))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">save_model</span><span class="p">(</span><span class="n">final_model</span><span class="p">,</span> <span class="s2">&quot;RandomForest_grid&quot;</span><span class="p">)</span></div>
+
+<div class="viewcode-block" id="Train.process_df"><a class="viewcode-back" href="../../index.html#my_package.train.Train.process_df">[docs]</a>    <span class="k">def</span> <span class="nf">process_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">df</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Process the input variables</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        opt: Namespace</span>
+<span class="sd">            Containing the arguements passed from ArgeParser</span>
+
+<span class="sd">        Return</span>
+<span class="sd">        ----------</span>
+<span class="sd">        X: Processed independent variables</span>
+<span class="sd">        y: Processed dependent variables</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        X = df.drop(&quot;median_house_value&quot;, axis=1)</span>
+<span class="sd">        y = df[&quot;median_house_value&quot;].copy()</span>
+
+<span class="sd">        imputer = SimpleImputer(strategy=&quot;median&quot;)</span>
+<span class="sd">        housing_num = X.drop(&quot;ocean_proximity&quot;, axis=1)</span>
+<span class="sd">        imputer.fit(housing_num)</span>
+<span class="sd">        X_impute = imputer.transform(housing_num)</span>
+
+<span class="sd">        housing_tr = pd.DataFrame(X_impute, columns=housing_num.columns, index=X.index)</span>
+<span class="sd">        housing_tr[&quot;rooms_per_household&quot;] = housing_tr[&quot;total_rooms&quot;] / housing_tr[&quot;households&quot;]</span>
+<span class="sd">        housing_tr[&quot;bedrooms_per_room&quot;] = housing_tr[&quot;total_bedrooms&quot;] / housing_tr[&quot;total_rooms&quot;]</span>
+<span class="sd">        housing_tr[&quot;population_per_household&quot;] = (</span>
+<span class="sd">            housing_tr[&quot;population&quot;] / housing_tr[&quot;households&quot;]</span>
+<span class="sd">        )</span>
+
+<span class="sd">        housing_cat = X[[&quot;ocean_proximity&quot;]]</span>
+<span class="sd">        X = housing_tr.join(pd.get_dummies(housing_cat, drop_first=True))</span>
+<span class="sd">        return X, y</span>
+
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">df</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;median_house_value&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">y</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;median_house_value&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+        <span class="n">imputer</span> <span class="o">=</span> <span class="n">SimpleImputer</span><span class="p">(</span><span class="n">strategy</span><span class="o">=</span><span class="s2">&quot;median&quot;</span><span class="p">)</span>
+        <span class="n">housing_num</span> <span class="o">=</span> <span class="n">X</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="s2">&quot;ocean_proximity&quot;</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">imputer</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">housing_num</span><span class="p">)</span>
+        <span class="n">X_impute</span> <span class="o">=</span> <span class="n">imputer</span><span class="o">.</span><span class="n">transform</span><span class="p">(</span><span class="n">housing_num</span><span class="p">)</span>
+
+        <span class="n">housing_tr</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">X_impute</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="n">housing_num</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">X</span><span class="o">.</span><span class="n">index</span><span class="p">)</span>
+        <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;rooms_per_household&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;total_rooms&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;households&quot;</span><span class="p">]</span>
+        <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;bedrooms_per_room&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;total_bedrooms&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;total_rooms&quot;</span><span class="p">]</span>
+        <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;population_per_household&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;population&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="n">housing_tr</span><span class="p">[</span><span class="s2">&quot;households&quot;</span><span class="p">]</span>
+        <span class="p">)</span>
+
+        <span class="n">housing_cat</span> <span class="o">=</span> <span class="n">X</span><span class="p">[[</span><span class="s2">&quot;ocean_proximity&quot;</span><span class="p">]]</span>
+        <span class="n">X</span> <span class="o">=</span> <span class="n">housing_tr</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pd</span><span class="o">.</span><span class="n">get_dummies</span><span class="p">(</span><span class="n">housing_cat</span><span class="p">,</span> <span class="n">drop_first</span><span class="o">=</span><span class="kc">True</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">X</span><span class="p">,</span> <span class="n">y</span></div>
+
+<div class="viewcode-block" id="Train.train"><a class="viewcode-back" href="../../index.html#my_package.train.Train.train">[docs]</a>    <span class="k">def</span> <span class="nf">train</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opt</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Trains ML models</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        opt: Namespace</span>
+<span class="sd">            Containing the arguements passed from ArgeParser</span>
+
+<span class="sd">    .. highlight:: rst</span>
+<span class="sd">    .. code-block:: python</span>
+
+<span class="sd">        train_df = pd.read_csv(os.path.join(opt.data_folder, &quot;processed&quot;, &quot;train.csv&quot;))</span>
+<span class="sd">        X_train, y_train = self.process_df(train_df)</span>
+<span class="sd">        self.train_LR(X_train, y_train)</span>
+<span class="sd">        self.train_tree(X_train, y_train)</span>
+<span class="sd">        self.forest_reg_rand(X_train, y_train)</span>
+<span class="sd">        self.forest_reg_grid(X_train, y_train)</span>
+<span class="sd">        logger.info(&quot;Training done for all models&quot;)</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Train all models</span>
+        <span class="n">train_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">data_folder</span><span class="p">,</span> <span class="s2">&quot;processed&quot;</span><span class="p">,</span> <span class="s2">&quot;train.csv&quot;</span><span class="p">))</span>
+        <span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">process_df</span><span class="p">(</span><span class="n">train_df</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_LR</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train_tree</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forest_reg_rand</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">forest_reg_grid</span><span class="p">(</span><span class="n">X_train</span><span class="p">,</span> <span class="n">y_train</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Training done for all models&quot;</span><span class="p">)</span></div>
+
+    <span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">opt</span><span class="p">):</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Logging: Train - Start&quot;</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">train</span><span class="p">(</span><span class="n">opt</span><span class="p">)</span></div>
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+
+    <span class="n">tr</span> <span class="o">=</span> <span class="n">Train</span><span class="p">()</span>
+    <span class="k">global</span> <span class="n">opt</span>
+    <span class="n">opt</span> <span class="o">=</span> <span class="n">tr</span><span class="o">.</span><span class="n">parse_opt</span><span class="p">()</span>
+    <span class="k">global</span> <span class="n">logger</span>
+    <span class="k">if</span> <span class="n">opt</span><span class="o">.</span><span class="n">log_path</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">log</span><span class="o">.</span><span class="n">configure_logger</span><span class="p">(</span><span class="n">log_file</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">opt</span><span class="o">.</span><span class="n">log_path</span><span class="p">,</span> <span class="s2">&quot;house_prediction.log&quot;</span><span class="p">))</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span>
+    <span class="k">if</span> <span class="n">opt</span><span class="o">.</span><span class="n">no_console_log</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">disabled</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">tr</span><span class="o">.</span><span class="n">main</span><span class="p">(</span><span class="n">opt</span><span class="p">)</span>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2022, Harsh Saxena
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>
