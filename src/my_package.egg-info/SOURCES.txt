@@ -6,6 +6,7 @@ src/my_package/log.py
 src/my_package/nonstandardcode.py
 src/my_package/score.py
 src/my_package/train.py
+src/my_package/utils.py
 src/my_package.egg-info/PKG-INFO
 src/my_package.egg-info/SOURCES.txt
 src/my_package.egg-info/dependency_links.txt

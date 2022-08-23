@@ -7,18 +7,53 @@ import logging
 import logging.config
 import os
 import pickle
+import re
 import time
 
 import numpy as np
 import pandas as pd
 from scipy.stats import randint
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 
-from my_package import log
+from my_package import log, utils
+
+rooms_ix, bedrooms_ix, population_ix, households_ix = 3, 4, 5, 6
+
+
+class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
+    def __init__(self, add_bedrooms_per_room = True): # no *args or **kargs
+        self.add_bedrooms_per_room = add_bedrooms_per_room
+    def fit(self, X, y=None):
+        return self  # nothing else to do
+    def transform(self, X):
+        rooms_per_household = X[:, rooms_ix] / X[:, households_ix]
+        population_per_household = X[:, population_ix] / X[:, households_ix]
+        if self.add_bedrooms_per_room:
+            bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
+            return np.c_[X, rooms_per_household, population_per_household,
+                         bedrooms_per_room]
+
+        else:
+            return np.c_[X, rooms_per_household, population_per_household]
+
+    def columns(self):
+        if self.add_bedrooms_per_room:
+            cols = [
+                "rooms_per_household",
+                "population_per_household",
+                "bedrooms_per_room",
+            ]
+        else:
+            cols = ["rooms_per_household", "population_per_household"]
+        return cols
 
 
 class Train:
@@ -267,6 +302,8 @@ class Train:
         logger.debug(" Trained in: " + str(time.time() - start_time))
         self.save_model(final_model, "RandomForest_grid")
 
+
+
     def process_df(self, df):
         """
         Process the input variables
@@ -275,54 +312,77 @@ class Train:
         ----------
         opt: Namespace
             Containing the arguements passed from ArgeParser
+        df: DataFrame
+            The housing price dataset
 
         Return
         ----------
         X: Processed independent variables
         y: Processed dependent variables
 
-    .. highlight:: rst
-    .. code-block:: python
-
-        X = df.drop("median_house_value", axis=1)
-        y = df["median_house_value"].copy()
-
-        imputer = SimpleImputer(strategy="median")
-        housing_num = X.drop("ocean_proximity", axis=1)
-        imputer.fit(housing_num)
-        X_impute = imputer.transform(housing_num)
-
-        housing_tr = pd.DataFrame(X_impute, columns=housing_num.columns, index=X.index)
-        housing_tr["rooms_per_household"] = housing_tr["total_rooms"] / housing_tr["households"]
-        housing_tr["bedrooms_per_room"] = housing_tr["total_bedrooms"] / housing_tr["total_rooms"]
-        housing_tr["population_per_household"] = (
-            housing_tr["population"] / housing_tr["households"]
-        )
-
-        housing_cat = X[["ocean_proximity"]]
-        X = housing_tr.join(pd.get_dummies(housing_cat, drop_first=True))
-        return X, y
-
-
         """
         X = df.drop("median_house_value", axis=1)
         y = df["median_house_value"].copy()
+        # imputer = SimpleImputer(strategy="median")
 
-        imputer = SimpleImputer(strategy="median")
-        housing_num = X.drop("ocean_proximity", axis=1)
-        imputer.fit(housing_num)
-        X_impute = imputer.transform(housing_num)
 
-        housing_tr = pd.DataFrame(X_impute, columns=housing_num.columns, index=X.index)
-        housing_tr["rooms_per_household"] = housing_tr["total_rooms"] / housing_tr["households"]
-        housing_tr["bedrooms_per_room"] = housing_tr["total_bedrooms"] / housing_tr["total_rooms"]
-        housing_tr["population_per_household"] = (
-            housing_tr["population"] / housing_tr["households"]
+        housing_num = df.drop("ocean_proximity", axis=1)
+
+        attr_adder = CombinedAttributesAdder()
+        cols = attr_adder.columns()
+
+        num_pipeline = Pipeline(
+            [
+                ("imputer", SimpleImputer(strategy="median")),
+                ("attribs_adder", CombinedAttributesAdder()),
+                ("std_scaler", StandardScaler()),
+            ]
         )
 
-        housing_cat = X[["ocean_proximity"]]
-        X = housing_tr.join(pd.get_dummies(housing_cat, drop_first=True))
-        return X, y
+        num_attribs = list(housing_num)
+        cat_attribs = ["ocean_proximity"]
+
+        full_pipeline = ColumnTransformer(
+            [
+                ("num", num_pipeline, num_attribs),
+                ("cat", OneHotEncoder(), cat_attribs),
+            ]
+        )
+
+        housing_prepared_numpyarray = full_pipeline.fit_transform(df)
+
+        column_names = utils.get_feature_names_from_column_transformer(full_pipeline)
+        logger.info("ColumnTransformer Columns: "+ str(column_names))
+        logger.info("CombinedAttributesAdder Columns: "+ str(cols))
+        house_prep = (
+            pd.DataFrame(housing_prepared_numpyarray[:, :8], columns=column_names[:8])
+        ).join(
+            (pd.DataFrame(housing_prepared_numpyarray[:, 8:11], columns=cols)).join(
+                pd.DataFrame(housing_prepared_numpyarray[:, 11:], columns=column_names[8:])
+            )
+        )
+
+        for i in range(len(house_prep.columns)):
+            if "num" in house_prep.columns[i]:
+                house_prep.rename(
+                    columns={
+                        house_prep.columns[i]: re.sub("num_", "", house_prep.columns[i])
+                    },
+                    inplace=True,
+                )
+
+        X_final = house_prep
+
+
+        # housing_tr = pd.DataFrame(X_impute, columns=housing_num.columns, index=X.index)
+        # housing_tr["rooms_per_household"] = housing_tr["total_rooms"] / housing_tr["households"]
+        # housing_tr["bedrooms_per_room"] = housing_tr["total_bedrooms"] / housing_tr["total_rooms"]
+        # housing_tr["population_per_household"] = (
+        #     housing_tr["population"] / housing_tr["households"]
+        # )
+        # housing_cat = X[["ocean_proximity"]]
+        # X = housing_tr.join(pd.get_dummies(housing_cat, drop_first=True))
+        return X_final, y
 
     def train(self, opt):
         """

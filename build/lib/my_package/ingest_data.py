@@ -51,7 +51,7 @@ class Ingest:
         housing_tgz.extractall(path=housing_path_raw)
         housing_tgz.close()
 
-    def load_housing_data(housing_path):
+    def load_housing_data(self, housing_path):
         """
         Load the housing data into a DataFrame
 
@@ -65,7 +65,8 @@ class Ingest:
         csv_path = os.path.join(housing_path, "raw", "housing.csv")
         return pd.read_csv(csv_path)
 
-    def split_train_test(housing, opt):
+
+    def split_train_test(self, housing, opt):
         """
         Split the data into train and test and save in processed folder
 
@@ -94,9 +95,14 @@ class Ingest:
             bins=[0.0, 1.5, 3.0, 4.5, 6.0, np.inf],
             labels=[1, 2, 3, 4, 5],
         )
+
         train_set, test_set = train_test_split(housing, test_size=0.2, random_state=42)
-        train_set.to_csv(os.path.join(opt.data_folder, "processed", "train.csv"))
-        test_set.to_csv(os.path.join(opt.data_folder, "processed", "val.csv"))
+        train_set = train_set.reset_index(drop=True)
+        test_set = test_set.reset_index(drop=True)
+        print(train_set.head())
+        # exit(0)
+        train_set.to_csv(os.path.join(opt.data_folder, "processed", "train.csv"), index=False)
+        test_set.to_csv(os.path.join(opt.data_folder, "processed", "val.csv"), index=False)
 
     def parse_opt(self, known=False):
         """

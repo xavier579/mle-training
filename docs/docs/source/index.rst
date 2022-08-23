@@ -4,9 +4,9 @@
    contain the root `toctree` directive.
 
 Welcome to Housing Price Prediction's documentation!
-====================================================
+==
+Ingest Data==================================================
 
-Ingest Data
 ------------------
 .. automodule:: my_package.ingest_data
     :members:
