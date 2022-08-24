@@ -1,0 +1,1 @@
+{"DecisionTreeModel": {"MSE": 7651338.32, "RMSE": 2766.11, "MAE": 7651338.32}, "LinearRegModel": {"MSE": 4184319.87, "RMSE": 2045.56, "MAE": 4184319.87}, "RandomForest_grid": {"MSE": 24002040.72, "RMSE": 4899.19, "MAE": 24002040.72}, "RandomForest_rand": {"MSE": 22174610.97, "RMSE": 4708.99, "MAE": 22174610.97}}
