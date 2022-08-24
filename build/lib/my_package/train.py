@@ -7,59 +7,42 @@ import logging
 import logging.config
 import os
 import pickle
-import re
 import time
 
-import numpy as np
+import mlflow
+import mlflow.sklearn
 import pandas as pd
 from scipy.stats import randint
-from sklearn.base import BaseEstimator, TransformerMixin
-from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.impute import SimpleImputer
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
 from sklearn.tree import DecisionTreeRegressor
 
 from my_package import log, utils
+from my_package.score import Score
 
 rooms_ix, bedrooms_ix, population_ix, households_ix = 3, 4, 5, 6
-
-
-class CombinedAttributesAdder(BaseEstimator, TransformerMixin):
-    def __init__(self, add_bedrooms_per_room = True): # no *args or **kargs
-        self.add_bedrooms_per_room = add_bedrooms_per_room
-    def fit(self, X, y=None):
-        return self  # nothing else to do
-    def transform(self, X):
-        rooms_per_household = X[:, rooms_ix] / X[:, households_ix]
-        population_per_household = X[:, population_ix] / X[:, households_ix]
-        if self.add_bedrooms_per_room:
-            bedrooms_per_room = X[:, bedrooms_ix] / X[:, rooms_ix]
-            return np.c_[X, rooms_per_household, population_per_household,
-                         bedrooms_per_room]
-
-        else:
-            return np.c_[X, rooms_per_household, population_per_household]
-
-    def columns(self):
-        if self.add_bedrooms_per_room:
-            cols = [
-                "rooms_per_household",
-                "population_per_household",
-                "bedrooms_per_room",
-            ]
-        else:
-            cols = ["rooms_per_household", "population_per_household"]
-        return cols
 
 
 class Train:
     """
     Class to train the models
     """
+
+    scr = Score()
+
+    def __init__(self) -> None:
+        global opt
+        global logger
+        opt = self.parse_opt()
+        if opt.log_path is not None:
+            logger = log.configure_logger(
+                log_file=os.path.join(opt.log_path, "house_prediction.log")
+            )
+        else:
+            logger = logging
+        if opt.no_console_log:
+            logger.disabled = True
 
     def parse_opt(known=False):
         parser = argparse.ArgumentParser()
@@ -127,16 +110,6 @@ class Train:
         y_train: Series
             Dependent variables of Training dataset
 
-    .. highlight:: rst
-    .. code-block:: python
-
-        start_time = time.time()
-        lr_model = LinearRegression()
-        lr_model.fit(X_train, y_train)
-        logger.debug("Linear Regression model trained")
-        logger.debug(" Trained in: " + str(time.time() - start_time))
-        self.save_model(lr_model, "LinearRegModel")
-
         """
         start_time = time.time()
         lr_model = LinearRegression()
@@ -144,6 +117,8 @@ class Train:
         logger.debug("Linear Regression model trained")
         logger.debug(" Trained in: " + str(time.time() - start_time))
         self.save_model(lr_model, "LinearRegModel")
+        mlflow.sklearn.log_model(lr_model, "model")
+        self.scr.evaluate_mlfow(lr_model)
 
     def train_tree(self, X_train, y_train):
         """
@@ -156,23 +131,18 @@ class Train:
         y_train: Series
             Dependent variables of Training dataset
 
-    .. highlight:: rst
-    .. code-block:: python
-
-        start_time = time.time()
-        tree_reg = DecisionTreeRegressor(random_state=42)
-        tree_reg.fit(X_train, y_train)
-        logger.debug("Decision tree model trained")
-        logger.debug(" Trained in: " + str(time.time() - start_time))
-        self.save_model(tree_reg, "DecisionTreeModel")
-
         """
         start_time = time.time()
-        tree_reg = DecisionTreeRegressor(random_state=42)
+        max_depth = 6
+        tree_reg = DecisionTreeRegressor(max_depth=max_depth, random_state=42)
         tree_reg.fit(X_train, y_train)
         logger.debug("Decision tree model trained")
         logger.debug(" Trained in: " + str(time.time() - start_time))
         self.save_model(tree_reg, "DecisionTreeModel")
+        # Log parameter, metrics, and model to MLflow
+        mlflow.log_param(key="max_depth", value=max_depth)
+        mlflow.sklearn.log_model(tree_reg, "model")
+        self.scr.evaluate_mlfow(tree_reg)
 
     def forest_reg_rand(self, X_train, y_train):
         """
@@ -186,33 +156,9 @@ class Train:
         y_train: Series
             Dependent variables of Training dataset
 
-    .. highlight:: rst
-    .. code-block:: python
-
-        start_time = time.time()
-        param_distribs = {
-            "n_estimators": randint(low=1, high=200),
-            "max_features": randint(low=1, high=8),
-        }
-
-        forest_reg = RandomForestRegressor(random_state=42)
-        rnd_search = RandomizedSearchCV(
-            forest_reg,
-            param_distributions=param_distribs,
-            n_iter=10,
-            cv=5,
-            scoring="neg_mean_squared_error",
-            random_state=42,
-        )
-        rnd_search.fit(X_train, y_train)
-        final_model = rnd_search.best_estimator_
-        logger.debug("Random Forest using randomizedSearch model trained")
-        logger.debug(" Trained in: " + str(time.time() - start_time))
-        self.save_model(final_model, "RandomForest_rand")
-
-
         """
         start_time = time.time()
+        # mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         param_distribs = {
             "n_estimators": randint(low=1, high=200),
             "max_features": randint(low=1, high=8),
@@ -232,6 +178,11 @@ class Train:
         logger.debug("Random Forest using randomizedSearch model trained")
         logger.debug(" Trained in: " + str(time.time() - start_time))
         self.save_model(final_model, "RandomForest_rand")
+        best_param = rnd_search.best_params_
+        mlflow.log_param(key="n_estimators", value=best_param["n_estimators"])
+        mlflow.log_param(key="max_features", value=best_param["max_features"])
+        mlflow.sklearn.log_model(final_model, "model")
+        self.scr.evaluate_mlfow(final_model)
 
     def forest_reg_grid(self, X_train, y_train):
         """
@@ -248,7 +199,9 @@ class Train:
     .. highlight:: rst
     .. code-block:: python
 
+        """
         start_time = time.time()
+        # mlflow.sklearn.autolog(log_input_examples=True, log_model_signatures=True)
         param_grid = [
             # try 12 (3×4) combinations of hyperparameters
             {"n_estimators": [3, 10, 30], "max_features": [2, 4, 6, 8]},
@@ -262,10 +215,9 @@ class Train:
         )
         grid_search.fit(X_train, y_train)
 
-        grid_search.best_params_
         cvres = grid_search.cv_results_
-        for mean_score, params in zip(cvres["mean_test_score"], cvres["params"]):
-            print(np.sqrt(-mean_score), params)
+        # for mean_score, params in zip(cvres["mean_test_score"], cvres["params"]):
+        #     print(np.sqrt(-mean_score), params)
 
         feature_importances = grid_search.best_estimator_.feature_importances_
         sorted(zip(feature_importances, X_train.columns), reverse=True)
@@ -273,116 +225,13 @@ class Train:
         logger.debug("Random Forest using GridSearch model trained")
         logger.debug(" Trained in: " + str(time.time() - start_time))
         self.save_model(final_model, "RandomForest_grid")
-
-
-        """
-        start_time = time.time()
-        param_grid = [
-            # try 12 (3×4) combinations of hyperparameters
-            {"n_estimators": [3, 10, 30], "max_features": [2, 4, 6, 8]},
-            # then try 6 (2×3) combinations with bootstrap set as False
-            {"bootstrap": [False], "n_estimators": [3, 10], "max_features": [2, 3, 4]},
-        ]
-        forest_reg = RandomForestRegressor(random_state=42)
-        # train across 5 folds, that's a total of (12+6)*5=90 rounds of training
-        grid_search = GridSearchCV(
-            forest_reg, param_grid, cv=5, scoring="neg_mean_squared_error", return_train_score=True
-        )
-        grid_search.fit(X_train, y_train)
-
-        grid_search.best_params_
-        cvres = grid_search.cv_results_
-        for mean_score, params in zip(cvres["mean_test_score"], cvres["params"]):
-            print(np.sqrt(-mean_score), params)
-
-        feature_importances = grid_search.best_estimator_.feature_importances_
-        sorted(zip(feature_importances, X_train.columns), reverse=True)
-        final_model = grid_search.best_estimator_
-        logger.debug("Random Forest using GridSearch model trained")
-        logger.debug(" Trained in: " + str(time.time() - start_time))
-        self.save_model(final_model, "RandomForest_grid")
-
-
-
-    def process_df(self, df):
-        """
-        Process the input variables
-
-        Parameters
-        ----------
-        opt: Namespace
-            Containing the arguements passed from ArgeParser
-        df: DataFrame
-            The housing price dataset
-
-        Return
-        ----------
-        X: Processed independent variables
-        y: Processed dependent variables
-
-        """
-        X = df.drop("median_house_value", axis=1)
-        y = df["median_house_value"].copy()
-        # imputer = SimpleImputer(strategy="median")
-
-
-        housing_num = df.drop("ocean_proximity", axis=1)
-
-        attr_adder = CombinedAttributesAdder()
-        cols = attr_adder.columns()
-
-        num_pipeline = Pipeline(
-            [
-                ("imputer", SimpleImputer(strategy="median")),
-                ("attribs_adder", CombinedAttributesAdder()),
-                ("std_scaler", StandardScaler()),
-            ]
-        )
-
-        num_attribs = list(housing_num)
-        cat_attribs = ["ocean_proximity"]
-
-        full_pipeline = ColumnTransformer(
-            [
-                ("num", num_pipeline, num_attribs),
-                ("cat", OneHotEncoder(), cat_attribs),
-            ]
-        )
-
-        housing_prepared_numpyarray = full_pipeline.fit_transform(df)
-
-        column_names = utils.get_feature_names_from_column_transformer(full_pipeline)
-        logger.info("ColumnTransformer Columns: "+ str(column_names))
-        logger.info("CombinedAttributesAdder Columns: "+ str(cols))
-        house_prep = (
-            pd.DataFrame(housing_prepared_numpyarray[:, :8], columns=column_names[:8])
-        ).join(
-            (pd.DataFrame(housing_prepared_numpyarray[:, 8:11], columns=cols)).join(
-                pd.DataFrame(housing_prepared_numpyarray[:, 11:], columns=column_names[8:])
-            )
-        )
-
-        for i in range(len(house_prep.columns)):
-            if "num" in house_prep.columns[i]:
-                house_prep.rename(
-                    columns={
-                        house_prep.columns[i]: re.sub("num_", "", house_prep.columns[i])
-                    },
-                    inplace=True,
-                )
-
-        X_final = house_prep
-
-
-        # housing_tr = pd.DataFrame(X_impute, columns=housing_num.columns, index=X.index)
-        # housing_tr["rooms_per_household"] = housing_tr["total_rooms"] / housing_tr["households"]
-        # housing_tr["bedrooms_per_room"] = housing_tr["total_bedrooms"] / housing_tr["total_rooms"]
-        # housing_tr["population_per_household"] = (
-        #     housing_tr["population"] / housing_tr["households"]
-        # )
-        # housing_cat = X[["ocean_proximity"]]
-        # X = housing_tr.join(pd.get_dummies(housing_cat, drop_first=True))
-        return X_final, y
+        best_param = grid_search.best_params_
+        mlflow.log_param(key="n_estimators", value=best_param["n_estimators"])
+        mlflow.log_param(key="max_features", value=best_param["max_features"])
+        if "bootstrap" in best_param.keys():
+            mlflow.log_param(key="bootstrap", value=best_param["bootstrap"])
+        mlflow.sklearn.log_model(final_model, "model")
+        self.scr.evaluate_mlfow(final_model)
 
     def train(self, opt):
         """
@@ -397,7 +246,7 @@ class Train:
     .. code-block:: python
 
         train_df = pd.read_csv(os.path.join(opt.data_folder, "processed", "train.csv"))
-        X_train, y_train = self.process_df(train_df)
+        X_train, y_train = utils.process_df(train_df)
         self.train_LR(X_train, y_train)
         self.train_tree(X_train, y_train)
         self.forest_reg_rand(X_train, y_train)
@@ -407,28 +256,78 @@ class Train:
         """
         # Train all models
         train_df = pd.read_csv(os.path.join(opt.data_folder, "processed", "train.csv"))
-        X_train, y_train = self.process_df(train_df)
-        self.train_LR(X_train, y_train)
-        self.train_tree(X_train, y_train)
-        self.forest_reg_rand(X_train, y_train)
-        self.forest_reg_grid(X_train, y_train)
+        X_train, y_train = utils.process_df(train_df)
+        with mlflow.start_run(
+            run_name="CHILD_TRAIN",
+            # experiment_id=experiment_id,
+            description="Train",
+            nested=True,
+        ) as train_parent:
+            mlflow.log_param("train_parent", "yes")
+            with mlflow.start_run(
+                run_name="CHILD_RUN_LR",
+                # experiment_id=experiment_id,
+                description="Train LR",
+                nested=True,
+            ) as child_train_run:
+                mlflow.log_param("train_child", "yes")
+                self.train_LR(X_train, y_train)
+            with mlflow.start_run(
+                run_name="CHILD_RUN_Tree",
+                # experiment_id=experiment_id,
+                description="Train Decision Tree",
+                nested=True,
+            ) as child_train_run:
+                mlflow.log_param("train_child", "yes")
+                self.train_tree(X_train, y_train)
+            # with mlflow.start_run(
+            #     run_name="CHILD_RUN_RF_rnd",
+            #     # experiment_id=experiment_id,
+            #     description="Train_RF_rnd",
+            #     nested=True,
+            # ) as child_train_run:
+            #     mlflow.log_param("train_child", "yes")
+            #     self.forest_reg_rand(X_train, y_train)
+            # with mlflow.start_run(
+            #     run_name="CHILD_RUN_RF_grid",
+            #     # experiment_id=experiment_id,
+            #     description="Train_RF_grid",
+            #     nested=True,
+            # ) as child_train_run:
+            #     mlflow.log_param("train_child", "yes")
+            #     self.forest_reg_grid(X_train, y_train)
         logger.info("Training done for all models")
 
-    def main(self, opt):
-        logger.info(f"Logging: Train - Start")
+        print("parent train run:")
+        print("run_id: {}".format(train_parent.info.run_id))
+        print("description: {}".format(train_parent.data.tags.get("mlflow.note.content")))
+        print("--")
+
+        # Search all child runs with a parent id
+        query = "tags.mlflow.parentRunId = '{}'".format(train_parent.info.run_id)
+        results = mlflow.search_runs(filter_string=query)
+        print("train child runs:")
+        print(results.columns)
+        print(results)
+
+    def main(self):
+        global opt
+        opt = self.parse_opt()
+        global logger
+        if opt.log_path is not None:
+            logger = log.configure_logger(
+                log_file=os.path.join(opt.log_path, "house_prediction.log")
+            )
+        else:
+            logger = logging
+        if opt.no_console_log:
+            logger.disabled = True
+            logger.info(f"Logging: Train - Start")
         self.train(opt)
 
 
 if __name__ == "__main__":
 
     tr = Train()
-    global opt
-    opt = tr.parse_opt()
-    global logger
-    if opt.log_path is not None:
-        logger = log.configure_logger(log_file=os.path.join(opt.log_path, "house_prediction.log"))
-    else:
-        logger = logging
-    if opt.no_console_log:
-        logger.disabled = True
-    tr.main(opt)
+    tr.main()
+    print("Training Done")

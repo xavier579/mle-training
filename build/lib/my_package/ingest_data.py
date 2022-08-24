@@ -5,6 +5,7 @@ import argparse
 import os
 import tarfile
 
+import mlflow
 import numpy as np
 import pandas as pd
 from six.moves import urllib
@@ -65,7 +66,6 @@ class Ingest:
         csv_path = os.path.join(housing_path, "raw", "housing.csv")
         return pd.read_csv(csv_path)
 
-
     def split_train_test(self, housing, opt):
         """
         Split the data into train and test and save in processed folder
@@ -99,10 +99,13 @@ class Ingest:
         train_set, test_set = train_test_split(housing, test_size=0.2, random_state=42)
         train_set = train_set.reset_index(drop=True)
         test_set = test_set.reset_index(drop=True)
-        print(train_set.head())
         # exit(0)
-        train_set.to_csv(os.path.join(opt.data_folder, "processed", "train.csv"), index=False)
-        test_set.to_csv(os.path.join(opt.data_folder, "processed", "val.csv"), index=False)
+        train_data_path = os.path.join(opt.data_folder, "processed", "train.csv")
+        test_data_path = os.path.join(opt.data_folder, "processed", "test.csv")
+        train_set.to_csv(train_data_path, index=False)
+        test_set.to_csv(test_data_path, index=False)
+        mlflow.log_artifact(train_data_path)
+        mlflow.log_artifact(test_data_path)
 
     def parse_opt(self, known=False):
         """

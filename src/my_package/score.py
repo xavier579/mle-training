@@ -5,15 +5,28 @@ import logging.config
 import os
 import pickle
 
+import mlflow
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 
-from my_package import log
-from my_package.train import Train
+from my_package import log, utils
 
 
 class Score:
+    def __init__(self) -> None:
+        global opt
+        global logger
+        opt = self.parse_opt()
+        if opt.log_path is not None:
+            logger = log.configure_logger(
+                log_file=os.path.join(opt.log_path, "house_prediction.log")
+            )
+        else:
+            logger = logging
+        if opt.no_console_log:
+            logger.disabled = True
+
     def parse_opt(known=False):
         parser = argparse.ArgumentParser()
         parser.add_argument("--data_folder", default="../../data", help="Path for input data")
@@ -35,11 +48,9 @@ class Score:
 
         return parser.parse_known_args()[0] if known else parser.parse_args()
 
-    tr = Train()
-
     def evaluate(self):
         """
-        Evaluate model performance by calculating MSE, MAE, RMSE
+        Evaluate all the models performance by calculating MSE, MAE, RMSE
 
         Parameters
         ----------
@@ -59,7 +70,7 @@ class Score:
         ]
         logger.debug("List of models to be evaluated: " + str(model_list))
         val_df = pd.read_csv(os.path.join(opt.data_folder, "processed", "val.csv"))
-        X_test, y_test = self.tr.process_df(val_df)
+        X_test, y_test = utils.process_df(val_df)
         result = dict()
         for model_name in model_list:
             result[model_name] = dict()
@@ -73,6 +84,42 @@ class Score:
             result[model_name]["MSE"] = np.round(mse, 2)
             result[model_name]["RMSE"] = np.round(rmse, 2)
             result[model_name]["MAE"] = np.round(mae, 2)
+            mlflow.log_metric(key="rmse", value=result[model_name]["RMSE"])
+            mlflow.log_metrics(
+                {"mae": result[model_name]["MAE"], "mse": result[model_name]["MSE"]}
+            )
+        logger.debug("Evaluation Matrix Result: " + str(result))
+        logger.info("Evaluation Matrix Result: " + str(result))
+        return result
+
+    def evaluate_mlfow(self, model):
+        """
+        Evaluate single model performance by calculating MSE, MAE, RMSE
+
+        Parameters
+        ----------
+        opt: Namespace
+            Containing the arguements passed from ArgeParser
+
+        Return
+        ----------
+        result: dict
+            Containing model values of rmse, mse, mae
+
+        """
+        logger.debug("Model to be evaluated: " + str(model))
+        val_df = pd.read_csv(os.path.join(opt.data_folder, "processed", "val.csv"))
+        X_test, y_test = utils.process_df(val_df)
+        result = dict()
+        final_predictions = model.predict(X_test)
+        mse = mean_squared_error(y_test, final_predictions)
+        rmse = np.sqrt(mse)
+        mae = mean_squared_error(y_test, final_predictions)
+        result["MSE"] = np.round(mse, 2)
+        result["RMSE"] = np.round(rmse, 2)
+        result["MAE"] = np.round(mae, 2)
+        mlflow.log_metric(key="rmse", value=result["RMSE"])
+        mlflow.log_metrics({"mae": result["MAE"], "mse": result["MSE"]})
         logger.debug("Evaluation Matrix Result: " + str(result))
         logger.info("Evaluation Matrix Result: " + str(result))
         return result
@@ -82,18 +129,11 @@ class Score:
         result = self.evaluate()
         with open(os.path.join(opt.output_folder, "result.json"), "w") as outfile:
             json.dump(result, outfile)
+        return result
 
 
 if __name__ == "__main__":
 
     scr = Score()
-    global opt
-    global logger
-    opt = scr.parse_opt()
-    if opt.log_path is not None:
-        logger = log.configure_logger(log_file=os.path.join(opt.log_path, "house_prediction.log"))
-    else:
-        logger = logging
-    if opt.no_console_log:
-        logger.disabled = True
-    scr.main()
+    print(scr.main())
+

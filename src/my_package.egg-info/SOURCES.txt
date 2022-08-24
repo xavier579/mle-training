@@ -4,6 +4,7 @@ src/my_package/__init__.py
 src/my_package/ingest_data.py
 src/my_package/log.py
 src/my_package/nonstandardcode.py
+src/my_package/run.py
 src/my_package/score.py
 src/my_package/train.py
 src/my_package/utils.py
