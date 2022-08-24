@@ -280,22 +280,22 @@ class Train:
             ) as child_train_run:
                 mlflow.log_param("train_child", "yes")
                 self.train_tree(X_train, y_train)
-            # with mlflow.start_run(
-            #     run_name="CHILD_RUN_RF_rnd",
-            #     # experiment_id=experiment_id,
-            #     description="Train_RF_rnd",
-            #     nested=True,
-            # ) as child_train_run:
-            #     mlflow.log_param("train_child", "yes")
-            #     self.forest_reg_rand(X_train, y_train)
-            # with mlflow.start_run(
-            #     run_name="CHILD_RUN_RF_grid",
-            #     # experiment_id=experiment_id,
-            #     description="Train_RF_grid",
-            #     nested=True,
-            # ) as child_train_run:
-            #     mlflow.log_param("train_child", "yes")
-            #     self.forest_reg_grid(X_train, y_train)
+            with mlflow.start_run(
+                run_name="CHILD_RUN_RF_rnd",
+                # experiment_id=experiment_id,
+                description="Train_RF_rnd",
+                nested=True,
+            ) as child_train_run:
+                mlflow.log_param("train_child", "yes")
+                self.forest_reg_rand(X_train, y_train)
+            with mlflow.start_run(
+                run_name="CHILD_RUN_RF_grid",
+                # experiment_id=experiment_id,
+                description="Train_RF_grid",
+                nested=True,
+            ) as child_train_run:
+                mlflow.log_param("train_child", "yes")
+                self.forest_reg_grid(X_train, y_train)
         logger.info("Training done for all models")
 
         print("parent train run:")
