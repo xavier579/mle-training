@@ -51,7 +51,7 @@ class Ingest:
         housing_tgz.extractall(path=housing_path_raw)
         housing_tgz.close()
 
-    def load_housing_data(housing_path):
+    def load_housing_data(self, housing_path):
         """
         Load the housing data into a DataFrame
 
@@ -65,7 +65,7 @@ class Ingest:
         csv_path = os.path.join(housing_path, "raw", "housing.csv")
         return pd.read_csv(csv_path)
 
-    def split_train_test(housing, opt):
+    def split_train_test(self, housing, opt):
         """
         Split the data into train and test and save in processed folder
 
