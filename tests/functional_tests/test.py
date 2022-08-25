@@ -5,7 +5,7 @@ class Test(unittest.TestCase):
 
     def test_data_downloaded(self):
         # ...
-        path = Path("../../data/raw/data.csv")
+        path = Path("../../data/raw/housing.csv")
         self.assertEquals((str(path), path.is_file()), (str(path), True))
 
     def test_train_file(self):
